@@ -12,7 +12,7 @@ random.seed()
 
 
 f = open(args.f, 'w')
-
+f.write(str(args.c)+'\n')
 for i in range(0, args.c):
 	f.write(str(random.randint(0, args.m)))
 	if i + 1 != args.c:
