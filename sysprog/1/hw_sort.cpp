@@ -146,8 +146,6 @@ q_sort_coro()
         bool is_all_finished = true;
         for (int i = 0; i < task_count; ++i) {
             if (! tasks[i].is_finished) {
-//                printf("Task_id=%d still active, "\
-//					"re-scheduling\n", i);
                 is_all_finished = false;
                 break;
             }
@@ -158,16 +156,6 @@ q_sort_coro()
         }
         check_resched_without_time;
     }
-}
-
-// A utility function to print contents of arr
-void
-printArr( int *arr, int n )
-{
-    int i;
-    for ( i = 0; i < n; ++i )
-        printf( "%d ", arr[i] );
-    printf("\n");
 }
 
 void
@@ -212,17 +200,13 @@ merge(int k, task *arrs)
     }
 
     free(arrs[1].arr);
-    free(arrs[0].arr);
     int tmpN = arrs[1].N + arrs[0].N;
-
 
     arrs[1].arr = arrs[k-1].arr;
     arrs[1].N = arrs[k-1].N;
 
     arrs[k-1].arr = tmp;
     arrs[k-1].N = tmpN;
-
-
 
     merge(k-1, arrs+1);
 }
@@ -242,14 +226,10 @@ main(int argc, char *argv[])
     task_count = argc - 1;
     tasks = (task*)calloc(task_count, sizeof(struct task));
 
-    long now = clock();
-    long delta = 0;
-
     FILE *fp;
     int N_all = 0;
     for(int i = 0; i < task_count; i++)
     {
-        long start_delta = clock();
         fp=fopen(argv[i+1], "rt");
         if(fp == nullptr)
         {
@@ -270,6 +250,7 @@ main(int argc, char *argv[])
             arr[j]=num;
             stack[j]=0;
         }
+        fclose(fp);
         // qsort initialization
         int top = -1;
         // push initial values of l and h to stack
@@ -277,7 +258,6 @@ main(int argc, char *argv[])
         stack[ ++top ] = N-1; // h
 
         task tmp;
-
 
         tmp.is_finished = false;
         tmp.arr = arr;
@@ -294,36 +274,24 @@ main(int argc, char *argv[])
         tmp.N = N;        // int N;
 
         tasks[i] = tmp;
-        //printf("%d : ", i);
-        //printArr(tasks[i].arr,15);
-        delta += clock() - start_delta;
         setjmp(tasks[i].env);
     }
-
-
     q_sort_coro();
-    long coro_elaps = clock() - now;
-
-
-//    for(int i = 0; i < task_count; i++)
-//    {
-//        printf("sorted %d : ", i);
-//        printArr(tasks[i].arr, tasks[i].N);
-//    }
 
     merge(task_count, tasks);
 
-//    printf("out : ");
-//    printArr(tasks[task_count - 1].arr, N_all);
-//    printf("\nTimes:\n\n");
-
-
+    fp=fopen("out.txt", "wt");
+    for (int i = 0; i < N_all; ++i )
+        fprintf(fp, "%d ", tasks[task_count-1].arr[i] );
+    fclose(fp);
 
     for(int i = 0; i < task_count; i++)
     {
         printf("coro %d work time = %ldms\n", i, tasks[i].elapsed_time);
+        free(tasks[i].arr);
+        free(tasks[i].stack);
     }
-    printf("\nmeasured coros time    = %ldms\n", coro_elaps-delta);
+    free(tasks);
 
     fflush(stdout);
     long whole_time = clock() - start_time;
