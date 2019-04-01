@@ -11,54 +11,49 @@ void get_substr(const char *line,char *rez, int start, int end){
 }
 cmd parse_command(char *line, int start, int end){
     cmd command{};
-    char *tmp;
-    const char **argv;
+    char **argv;
+    char *buf = (char *)malloc((end - start+1)* sizeof(char));
+    int j = 0;
+    int count = 0;
+    while(line[start] == ' '){
+        start++;
+    }
+    while(line[end] == ' ' || line[end] == '\n'){
+        end--;
+    }
+    for(int i = start; i<= end; i++){
+        buf[j] = line[i];
+        j++;
+        if(line[i] == ' ') {
+            count++;
+        }
+    }
+    buf[end - start+1] = 0;
+    argv = (char **)malloc((count + 1)* sizeof(char *));
 
-    for(int i = start; i< end; i++){
-        if(line[i] == ' '){
-            tmp = (char*)malloc((i-start)* sizeof(char));
-            get_substr(line, tmp, start, i);
-            start = i+1;
-            break;
-        }
+    for(int i = 0; i< count+1; i++){
+        argv[i] = strsep(&buf, " ");
     }
-    command.name = tmp;
-    if(start == end){
-        command.argc = 0;
-        return command;
-    }
-    // name param1 param2
-    int argc = 1;
-    argv = (const char **) malloc(argc * sizeof(char *));
-    for(int i = start; i< end; i++){
-        if(line[i] == ' '){
-            tmp = (char*)malloc((i-start)* sizeof(char));
-            get_substr(line, tmp, start, i);
-            argv[argc - 1] = tmp;
-            argv = (const char**)realloc(argv, (argc+1)* sizeof(char *));
-            start = i+1;
-            argc++;
-        }
-    }
-    tmp = (char*)malloc((end-start)* sizeof(char));
-    get_substr(line, tmp, start, end);
-    argv[argc - 1] = tmp;
-    command.argc = argc;
+
+    command.name = argv[0];
+
+    command.argc = count;
     command.argv = argv;
+
     return command;
 }
 
 cmd_line parse_line(char *line){
-    size_t count  = 1;
-    cmd *cmds = (cmd*)calloc(count, sizeof(cmd));
+    int count  = 1;
+    cmd *cmds = (cmd*)malloc(count*sizeof(cmd));
     int start = 0;
     int j = 0;
     for (int i = 0; i <= strlen(line); i++){
         if (line[i] == '|'){
-            // > cmd |
-            //  012345
+            // > cmd | cmd2
+            //  0123456789
             // i = 5;
-            cmds[count - 1] = parse_command(line, start+1, i-1);
+            cmds[count - 1] = parse_command(line, start, i-1);
 
             cmds = (cmd*)realloc(cmds, (count+1)* sizeof(cmd));
             start = i+1;
@@ -66,7 +61,7 @@ cmd_line parse_line(char *line){
             j++;
         }
     }
-    cmds[j] = parse_command(line, start+1, strlen(line)-1);
+    cmds[j] = parse_command(line, start, strlen(line)-1);
 
 
 

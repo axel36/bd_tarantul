@@ -7,7 +7,7 @@
 #define INC_2_STRUCTS_H
 struct cmd {
     const char *name;
-    const char **argv;
+    char **argv;
     int argc;
 };
 
