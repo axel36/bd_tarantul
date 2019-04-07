@@ -14,7 +14,7 @@ char * get_cmd(void) {
     size_t lenmax = 100, len = lenmax;
     int c;
 
-    printf("$>");
+
     if(line == NULL)
         return NULL;
 
@@ -45,17 +45,17 @@ char * get_cmd(void) {
 int main() {
     const char *ext = "exit\n";
     for(;;){
-        char *line = get_cmd();
-        int l = strlen(line));
-        if(line[l-1]=='\\   ')
-        if (strcmp(line, ext) == 0){
+        //char *line = get_cmd();
+        printf("$>");
+        fflush(stdout);
+        cmd_line cmds = parse_line();
+        if (strcmp(cmds.commands[0].name, ext) == 0){
             break;
         }
 
-        cmd_line cmds = parse_line(line);
 
         if(cmds.count == 1){
-//            printf("name - %s\narg - %s\n",cmds.commands[0].name, cmds.commands[0].argv[1]);
+            printf("name - %s\narg - %s\n",cmds.commands[0].name, cmds.commands[0].argv[1]);
             pid_t pid = fork();
             if(pid == -1){
                 printf("\n bad fork");
@@ -78,66 +78,68 @@ int main() {
 //
         } else {
 
-            int ** pipefds = (int **)malloc((cmds.count - 1)* sizeof(int*)); // 0 = read, 1 = write
-            for(int i = 0; i< cmds.count-1; i++){
-                int tmp[2];
-                if (pipe(tmp) < 0) {
+            int in_fd, out_fd;
+            for (int i = 0; i < cmds.count; i++) {
+                int pipefd[2];// 0 = read, 1 = write
+
+                if (pipe(pipefd) < 0) {
                     printf("\nPipe could not be initialized");
                 }
-                pipefds[i] = tmp;
-            }
-            pid_t pd1, pd2;
 
-            pd1 = fork();
-            if (pd1 < 0) {
-                printf("\nbad fork");
-            }
 
-            if (pd1 == 0) {
-                close(pipefds[0][0]);
-                dup2(pipefds[0][1], STDOUT_FILENO);
-                close(pipefds[0][1]);
-
-                if (execvp(cmds.commands[0].name, cmds.commands[0].argv) < 0) {
-                    printf("\nCould not execute command 1..");
-                    exit(0);
+                if (i > 0) {
+                    dup2(in_fd, pipefd[0]);
                 }
-                exit(0);
-            } else {
-                // Parent executing
+                in_fd = pipefd[1];
+//                printf("proc%d: infd =%d\n", i, in_fd);
+//                fflush(stdout);
 
-                pd2 = fork();
+                if (fork() == 0) { // in child
+                    // 0 = read, 1 = write
+                    printf("proc%d: in\n", i);
+                    fflush(stdout);
+                    dup2(pipefd[0], STDIN_FILENO);
+                    close(pipefd[0]);
 
-                if (pd2 < 0) {
-                    printf("\nCould not fork");
-                }
 
-                // Child 2 executing..
-                // It only needs to read at the read end
-                if (pd2 == 0) {
-                    close(pipefds[0][1]);
-                    dup2(pipefds[0][0], STDIN_FILENO);
-                    close(pipefds[0][0]);
-                    if (execvp(cmds.commands[1].name, cmds.commands[1].argv) < 0) {
-                        printf("\nCould not execute command 2..");
+                    dup2(pipefd[1], STDOUT_FILENO);
+                    close(pipefd[1]);
+
+                    if (cmds.commands[i].argc > 0) {
+                        if (execvp(cmds.commands[i].name, cmds.commands[i].argv) < 0) {
+                            printf("\nbad execv\n");
+                        }
+                        printf("%s", cmds.commands[i].argv[1]);
+                    } else {
+                        if (execlp(cmds.commands[i].name, cmds.commands[i].name, NULL) < 0) {
+                            printf("\nbad execl for cmd: _%s_\n", cmds.commands[0].name);
+                        }
                     }
+
+                    close(pipefd[1]);
+                    close(pipefd[0]);
                     exit(0);
+
                 } else {
-                    // parent executing, waiting for two children
-                    close(pipefds[0][1]);
-                    wait(NULL);
-                    wait(NULL);
+                    close(pipefd[1]);
+                }
+
+            }
+
+            for (int i = 0; i < cmds.count; i++) {
+                wait(NULL);
+            }
+
+            for (int i = 0; i < cmds.count; i++) {
+
+                printf("your cmd name is: %s \n", cmds.commands[i].name);
+                for (int j = 0; j < cmds.commands[i].argc; j++) {
+                    printf("\t param%d is: %s\n", j, cmds.commands[i].argv[j]);
                 }
             }
-//            for (int i = 0; i < cmds.count; i++) {
-//
-//                printf("your cmd name is: %s \n", cmds.commands[i].name);
-//                for (int j = 0; j < cmds.commands[i].argc; j++) {
-//                    printf("\t param%d is: %s\n", j, cmds.commands[i].argv[j]);
-//                }
-//            }
         }
     }
+
 
     printf("\nBye!");
     return 0;
